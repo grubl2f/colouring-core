@@ -1,0 +1,114 @@
+---
+version: '3.9'
+
+x-service-common: &service-common
+  restart: always
+  networks:
+    - default
+  timezone: UTC
+  pull_policy: never
+  sysctls:
+    - net.ipv6.conf.all.disable_ipv6=1
+    - net.ipv6.conf.default.disable_ipv6=1
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME:-colouring-cities}-net
+    # internal: true
+
+volumes:
+  db-data:
+
+#  app-node_modules:
+#  app-build:
+  app-tilecache:
+
+secrets:
+  SERVICES__DB__postgres_initdb_args:
+    file: ./secrets/db/postgres_initdb_args.txt
+  SERVICES__DB__postgres_db:
+    file: ./secrets/db/postgres_db.txt
+  SERVICES__DB__postgres_user:
+    file: ./secrets/db/postgres_user.txt
+  SERVICES__DB__postgres_password:
+    file: ./secrets/db/postgres_password.txt
+  SERVICES__APP__api_secret:
+    file: ./secrets/app/api_secret.txt
+
+services:
+  app:
+    <<: *service-common
+    container_name: app.${COMPOSE_PROJECT_NAME:-colouring-cities}
+    image: "${SERVICES__APP__CONTAINER_IMAGE}:${SERVICES__APP__NODE_IMAGE_VERSION:-22-slim}"
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        NODE_IMAGE_VERSION: "${SERVICES__APP__NODE_IMAGE_VERSION:-22-slim}"
+    networks:
+      default:
+        aliases:
+          - ${COMPOSE_PROJECT_NAME:-colouring-cities}
+#    read_only: true
+#    mem_limit: 4g
+#    shm_size: 1g
+    shm_size: "0"
+    secrets:
+      - SERVICES__DB__postgres_initdb_args
+      - SERVICES__DB__postgres_db
+      - SERVICES__DB__postgres_user
+      - SERVICES__DB__postgres_password
+    environment:
+      PORT: ${SERVICES__APP__PORT:-3000}
+      PGHOST: db.${COMPOSE_PROJECT_NAME:-colouring-cities}
+      PGPORT: ${SERVICES__APP__PGPORT:-5432}
+      PGDATABASE: ${SERVICES__APP__POSTGRES_DB:-colouring_cities_db}
+      PGUSER: ${SERVICES__APP__POSTGRES_USER:-colouring_cities_db_user}
+      PGPASSWORD: ${SERVICES__APP__POSTGRES_PASS:-colouring_cities_db_user_pw}
+      APP_COOKIE_SECRET: ${SERVICES__APP__API_COOKIE_SECRET:-colouring_cities_123456}
+      MAIL_SERVER_HOST: ${SERVICES__APP__MAIL_SERVER_HOST}
+      MAIL_SERVER_PORT: ${SERVICES__APP__MAIL_SERVER_PORT}
+      MAIL_SERVER_USER: ${SERVICES__APP__MAIL_SERVER_USER}
+      MAIL_SERVER_PASSWORD: ${SERVICES__APP__MAIL_SERVER_PASSWORD}
+      NODE_OPTIONS: --max-old-space-size=4096
+
+      TILECACHE_PATH: /app/tilecache
+
+#      NODE_ENV: development
+#      VERBOSE: "true"
+
+    volumes:
+      - app-tilecache:/app/tilecache:z
+
+  db:
+    <<: *service-common
+    container_name: db.${COMPOSE_PROJECT_NAME:-colouring-cities}
+    image: postgis/postgis:${SERVICES__DB__POSTGRES_IMAGE_VERSION:-17-3.5}
+    restart: on-failure
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - >
+          PGDATABASE=$(cat "${POSTGRES_DB_FILE}")
+          PGUSER=$(cat "${POSTGRES_USER_FILE}")
+          pg_isready
+          --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    user: postgres
+#    shm_size: 256mb
+    shm_size: "0"
+    volumes:
+      - db-data:/var/lib/postgresql/data:Z
+      - ./migrations/scripts/01-init-01.conf.patch-pg_hba_conf.sh:/docker-entrypoint-initdb.d/01-init-pg_hba_conf.sh:ro,Z
+      - ./migrations/scripts/01-init-02.conf.enable_extensions.sh:/docker-entrypoint-initdb.d/02-init-enable_pg_extensions.sh:ro,Z
+      - ./migrations:/app/migrations:ro,Z
+      - ./migrations/scripts/11-migrations-01-main.sh:/docker-entrypoint-initdb.d/10-migrations-main.sh:ro,Z
+      - ./secrets:/run/secrets:ro,z
+    environment:
+      POSTGRES_INITDB_ARGS_FILE: /run/secrets/db/postgres_initdb_args.txt
+      POSTGRES_DB_FILE: /run/secrets/db/postgres_db.txt
+      POSTGRES_USER_FILE: /run/secrets/db/postgres_user.txt
+      POSTGRES_PASSWORD_FILE: /run/secrets/db/postgres_password.txt
+      POSTGRES_MULTIPLE_EXTENSIONS: ${SERVICES__DB__POSTGRES_MULTIPLE_EXTENSIONS:-hstore,postgis,pgcrypto,pg_trgm}
