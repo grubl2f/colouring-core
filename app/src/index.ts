@@ -17,7 +17,7 @@ server.listen(process.env.PORT || 3000, () => {
 });
 
 // In development mode, enable hot module reloading (HMR)
-if (module.hot) {
+if (process.env.NODE_ENV === 'development' && module.hot) {
     console.log('✅  Server-side HMR Enabled!');
 
     module.hot.accept('./server', () => {

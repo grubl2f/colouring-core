@@ -22,6 +22,6 @@ hydrate(
     document.getElementById('root')
 );
 
-if (module.hot) {
+if (process.env.NODE_ENV === 'development' && module.hot) {
     module.hot.accept();
 }
