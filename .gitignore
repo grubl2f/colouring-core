@@ -36,3 +36,12 @@ TODO
 
 # VM
 .vagrant
+
+# Secrets
+secrets/
+
+# Env
+.env
+
+# Out-of-memory indicators
+oom
