@@ -5,6 +5,7 @@ x-service-common: &service-common
   restart: always
   networks:
     - default
+    - default-internal
   timezone: UTC
   pull_policy: never
   sysctls:
@@ -14,7 +15,9 @@ x-service-common: &service-common
 networks:
   default:
     name: ${COMPOSE_PROJECT_NAME:-colouring-cities}-net
-    # internal: true
+  default-internal:
+    name: ${COMPOSE_PROJECT_NAME:-colouring-cities}-internal-net
+    internal: true
 
 volumes:
   db-data:
@@ -47,6 +50,9 @@ services:
         NODE_IMAGE_VERSION: "${SERVICES__APP__NODE_IMAGE_VERSION:-22-slim}"
     networks:
       default:
+        aliases:
+          - ${COMPOSE_PROJECT_NAME:-colouring-cities}
+      default-internal:
         aliases:
           - ${COMPOSE_PROJECT_NAME:-colouring-cities}
 #    read_only: true
@@ -96,6 +102,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - default-internal
     user: postgres
 #    shm_size: 256mb
     shm_size: "0"
