@@ -574,11 +574,19 @@ export const buildingAttributesConfig = valueType<DataFieldConfig>()({ /* eslint
     sust_aggregate_estimate_epc: {
         edit: true,
     },
-    sust_energy_rating_source_type: {
+    sust_aggregate_estimate_epc_source_type: {
         edit: true,
         verify: true
     },
-    sust_energy_rating_source_link: {
+    sust_aggregate_estimate_epc_source_link: {
+        edit: true,
+        verify: true
+    },
+    sust_dec_source_type: {
+        edit: true,
+        verify: true
+    },
+    sust_dec_source_link: {
         edit: true,
         verify: true
     },
